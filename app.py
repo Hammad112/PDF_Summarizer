@@ -20,34 +20,18 @@ else:
     st.error("API key not found. Please check your environment variables or Streamlit secrets.")
 
 # Function to extract text from PDFs
-# Function to extract text from PDFs with progress bar and error handling
+
 def get_pdf_text(pdf_docs):
     text = ""
-    total_pages = 0
     try:
-        # First, calculate the total number of pages across all PDFs for progress tracking
-        for pdf in pdf_docs:
-            pdf_reader = PdfReader(pdf)
-            total_pages += len(pdf_reader.pages)
-
-        progress_bar = st.progress(0)
-        page_count = 0
-
-        # Loop through each PDF and extract text from each page
         for pdf in pdf_docs:
             pdf_reader = PdfReader(pdf)
             for page in pdf_reader.pages:
-                try:
-                    text += page.extract_text()
-                except Exception as e:
-                    st.warning(f"Could not extract text from one of the pages. Skipping. Error: {e}")
-                page_count += 1
-                progress_bar.progress(page_count / total_pages)
-
-        st.success(f"Extracted text from {page_count} pages.")
+                text += page.extract_text()
     except Exception as e:
         st.error(f"Error reading PDF files: {e}")
     return text
+
 
 
 # Function to split text into manageable chunks
