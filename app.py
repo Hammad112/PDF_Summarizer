@@ -14,8 +14,8 @@ import traceback
 google_api_key = st.secrets.get("API_KEY")
 
 # Check if the API key is set, otherwise show an error
-if api_key:
-    genai.configure(api_key=api_key)
+if google_api_key:
+    genai.configure(api_key=google_api_key)
 else:
     st.error("API key not found. Please check your environment variables or Streamlit secrets.")
 
