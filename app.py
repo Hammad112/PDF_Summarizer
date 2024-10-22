@@ -8,18 +8,16 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
 import traceback
 
-# Load environment variables
-load_dotenv()
-
 # Ensure the Google API key is loaded
-google_api_key = "AIzaSyBMFWrHTjUzBxzDdrOiWh77T0zrnkdp51M"
-if not google_api_key:
-    raise ValueError("Google API key not found. Please check your .env file.")
+google_api_key = st.secrets.get("API_KEY")
 
-genai.configure(api_key=google_api_key)
+# Check if the API key is set, otherwise show an error
+if api_key:
+    genai.configure(api_key=api_key)
+else:
+    st.error("API key not found. Please check your environment variables or Streamlit secrets.")
 
 # Function to extract text from PDFs
 def get_pdf_text(pdf_docs):
@@ -43,15 +41,16 @@ def get_text_chunks(text):
         return []
     return chunks
 
-# Function to create and save vector store
+# Function to create an in-memory FAISS vector store
 def get_vector_store(text_chunks):
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-        vector_store.save_local("faiss_index")
+        return vector_store
     except Exception as e:
         st.error(f"Error creating vector store: {e}")
         traceback.print_exc()
+        return None
 
 # Function to create a conversation chain with Google Generative AI
 def get_conversational_chain():
@@ -80,11 +79,9 @@ def get_conversational_chain():
         return None
 
 # Function to process user input and provide a response
-def user_input(user_question):
+def user_input(user_question, vector_store):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-        docs = new_db.similarity_search(user_question)
+        docs = vector_store.similarity_search(user_question)
 
         chain = get_conversational_chain()
         if chain:
@@ -135,7 +132,11 @@ def main():
         if st.button("Submit"):
             if user_question:
                 st.write("### 🧠 Thinking...")
-                user_input(user_question)
+                # Only allow submission if vector_store is available
+                if 'vector_store' in st.session_state:
+                    user_input(user_question, st.session_state.vector_store)
+                else:
+                    st.error("Please upload and process a PDF file first.")
             else:
                 st.warning("Please enter a question before submitting.")
 
@@ -153,8 +154,11 @@ def main():
                         if raw_text:
                             text_chunks = get_text_chunks(raw_text)
                             if text_chunks:
-                                get_vector_store(text_chunks)
-                                st.success("✅ Processing complete!")
+                                vector_store = get_vector_store(text_chunks)
+                                if vector_store:
+                                    # Store vector store in session state to avoid re-processing
+                                    st.session_state.vector_store = vector_store
+                                    st.success("✅ Processing complete!")
                 else:
                     st.warning("Please upload PDF files before processing.")
 
