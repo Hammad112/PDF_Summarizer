@@ -11,12 +11,12 @@ from langchain.prompts import PromptTemplate
 import traceback
 
 # Load the Google API key from Streamlit secrets
-google_api_key = st.secrets.get("API_KEY")
-if not google_api_key:
-    st.error("API Key is not found. Please set it in the .streamlit/secrets.toml file.")
-else:
-    # Configure the Google Generative AI API
-    genai.configure(api_key=google_api_key)
+gemini_api_key = st.secrets.get("API_KEY")
+if not gemini_api_key:
+    raise ValueError("Gemini API key not found. Please check your .env file.")
+
+# Configure Gemini API
+genai.configure(api_key=gemini_api_key)
 
 # Function to extract text from PDFs
 def get_pdf_text(pdf_docs):
@@ -25,25 +25,26 @@ def get_pdf_text(pdf_docs):
         for pdf in pdf_docs:
             pdf_reader = PdfReader(pdf)
             for page in pdf_reader.pages:
-                text += page.extract_text() or ""  # Handle None values
+                text += page.extract_text()
     except Exception as e:
         st.error(f"Error reading PDF files: {e}")
     return text
 
-# Function to split text into chunks
-def get_text_chunks(raw_text):
+# Function to split text into manageable chunks
+def get_text_chunks(text):
     try:
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        text_chunks = text_splitter.split_text(raw_text)
-        return text_chunks
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+        chunks = text_splitter.split_text(text)
     except Exception as e:
-        st.error(f"Error splitting text into chunks: {e}")
+        st.error(f"Error splitting text: {e}")
         return []
+    return chunks
 
-# Function to create a vector store from text chunks
+# Function to create an in-memory FAISS vector store
 def get_vector_store(text_chunks):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", api_key=google_api_key)
+        # Use the Gemini model for embeddings
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")  # Change model name if needed
         vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
         return vector_store
     except Exception as e:
@@ -67,7 +68,8 @@ def get_conversational_chain():
         Answer:
         """
 
-        model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+        # Use the Gemini model for chat
+        model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)  # Change model name if needed
         prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
         chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
 
@@ -88,7 +90,7 @@ def user_input(user_question, vector_store):
                 {"input_documents": docs, "question": user_question},
                 return_only_outputs=True
             )
-            st.markdown(f"<div style='font-size: 16px;'> 🤖 Response: {response['output_text']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size: 16px;'> 🤖 Response:: {response['output_text']}</div>", unsafe_allow_html=True)
     except Exception as e:
         st.error(f"Error processing user input: {e}")
         traceback.print_exc()
@@ -97,7 +99,7 @@ def user_input(user_question, vector_store):
 def main():
     # Set page title and icon
     st.set_page_config(page_title="📚 Chat PDF with Gemini AI", layout="centered", page_icon="📖")
-
+    
     # Add CSS for styling
     st.markdown(
         """
@@ -111,6 +113,7 @@ def main():
             font-size: 18px;
             margin-bottom: 20px;
         }
+        
         </style>
         """,
         unsafe_allow_html=True
