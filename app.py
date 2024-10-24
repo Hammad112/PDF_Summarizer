@@ -30,16 +30,16 @@ def get_pdf_text(pdf_docs):
         st.error(f"Error reading PDF files: {e}")
     return text
 
-# Ensure API key is passed directly and not relying on any metadata server
-def get_vector_store(text_chunks):
+# Function to split text into manageable chunks
+def get_text_chunks(text):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", api_key=google_api_key)
-        vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-        return vector_store
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+        chunks = text_splitter.split_text(text)
     except Exception as e:
-        st.error(f"Error creating vector store: {e}")
-        traceback.print_exc()
-        return None
+        st.error(f"Error splitting text: {e}")
+        return []
+    return chunks
+
 
 # Function to create an in-memory FAISS vector store
 def get_vector_store(text_chunks):
