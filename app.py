@@ -8,14 +8,10 @@ from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
-from dotenv import load_dotenv
 import traceback
 
-# Load environment variables
-load_dotenv()
-
 # Ensure the Google API key is loaded
-google_api_key = st.secret["API_KEY"]
+google_api_key = st.secrets.get("API_KEY")
 if not google_api_key:
     raise ValueError("Google API key not found. Please check your .env file.")
 
