@@ -16,6 +16,7 @@ if not google_api_key:
     raise ValueError("Google API key not found. Please check your .env file.")
 
 genai.configure(api_key=google_api_key)
+print("Sucessful")
 
 # Function to extract text from PDFs
 def get_pdf_text(pdf_docs):
