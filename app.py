@@ -10,7 +10,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 import os
 import traceback
 import tempfile
-import faiss
+
 
 # Initialize Google API
 def init_google_api():
