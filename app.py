@@ -6,122 +6,167 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
+from langchain.chains.question_answering import load_qa_chain  # Import from question_answering
+from dotenv import load_dotenv
 import traceback
-from time import time
 
-# Add timeout decorator
-def timeout_handler(func):
-    def wrapper(*args, **kwargs):
-        start_time = time()
-        result = func(*args, **kwargs)
-        if time() - start_time > 60:  # 60 seconds timeout
-            st.error("Processing timed out. Please try with a smaller PDF file.")
-            return None
-        return result
-    return wrapper
+# Load environment variables
+load_dotenv()
 
-# Modified PDF text extraction with progress bar
-@timeout_handler
+# Ensure the Google API key is loaded
+google_api_key = os.getenv("Google_API_Key")
+if not google_api_key:
+    raise ValueError("Google API key not found. Please check your .env file.")
+
+genai.configure(api_key=google_api_key)
+
+# Function to extract text from PDFs
 def get_pdf_text(pdf_docs):
     text = ""
     try:
-        total_pages = sum(len(PdfReader(pdf).pages) for pdf in pdf_docs)
-        progress_bar = st.progress(0)
-        current_page = 0
-        
         for pdf in pdf_docs:
             pdf_reader = PdfReader(pdf)
             for page in pdf_reader.pages:
                 text += page.extract_text()
-                current_page += 1
-                progress_bar.progress(current_page / total_pages)
-                
-        progress_bar.empty()
-        if not text.strip():
-            st.warning("No text could be extracted from the PDF(s). Please check if the PDFs contain searchable text.")
-            return None
     except Exception as e:
-        st.error(f"Error reading PDF files: {str(e)}")
-        return None
+        st.error(f"Error reading PDF files: {e}")
     return text
 
-# Modified text chunking with size limit
+# Function to split text into manageable chunks
 def get_text_chunks(text):
     try:
-        if len(text) > 1000000:  # Add size limit
-            st.warning("Text content is very large. Processing may take longer.")
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=5000,  # Reduced chunk size
-            chunk_overlap=500,
-            length_function=len
-        )
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
         chunks = text_splitter.split_text(text)
-        return chunks
     except Exception as e:
-        st.error(f"Error splitting text: {str(e)}")
-        return None
+        st.error(f"Error splitting text: {e}")
+        return []
+    return chunks
 
-# Modified vector store creation with progress indication
+# Function to create an in-memory FAISS vector store
 def get_vector_store(text_chunks):
     try:
-        with st.spinner("Creating vector embeddings..."):
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-            return vector_store
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+        return vector_store
     except Exception as e:
-        st.error(f"Error creating vector store: {str(e)}")
+        st.error(f"Error creating vector store: {e}")
+        traceback.print_exc()
         return None
 
+# Function to create a conversation chain with Google Generative AI
+def get_conversational_chain():
+    try:
+        # Define the prompt template
+        prompt_template = """
+        Answer the question as detailed as possible from the provided context. If the answer is not in
+        the provided context, say, "Answer is not available in the context." Do not provide a wrong answer.
+
+        Context:
+        {context}
+
+        Question: 
+        {question}
+
+        Answer:
+        """
+        # Create a PromptTemplate
+        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+
+        # Create the chain using the load_qa_chain method
+        model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+        chain = load_qa_chain(llm=model, chain_type="stuff", prompt=prompt)  # Using "stuff" type chain
+
+        return chain
+    except Exception as e:
+        st.error(f"Error creating conversation chain: {e}")
+        traceback.print_exc()
+        return None
+
+# Function to process user input and provide a response
+def user_input(user_question, vector_store):
+    try:
+        docs = vector_store.similarity_search(user_question)
+
+        chain = get_conversational_chain()
+        if chain:
+            # Use `invoke` to process the documents and the question
+            response = chain.invoke({
+                "input_documents": docs,
+                "question": user_question
+            })
+            st.markdown(f"<div style='font-size: 16px;'> 🤖 Response: {response['output_text']}</div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Error processing user input: {e}")
+        traceback.print_exc()
+
+# Main function to handle Streamlit UI and actions
 def main():
+    # Set page title and icon
     st.set_page_config(page_title="📚 Chat PDF with Gemini AI", layout="centered", page_icon="📖")
     
-    # Add CSS styling (same as before)
-    st.markdown("""<style>...</style>""", unsafe_allow_html=True)
-    
-    st.markdown("<h1 class='main-header'>Chat with Your PDF using Gemini AI 🤖</h1>", unsafe_allow_html=True)
-    
-    # Modified sidebar layout
-    with st.sidebar:
-        st.title("📂 PDF Upload & Processing")
-        pdf_docs = st.file_uploader("Upload PDF Files", accept_multiple_files=True, type=["pdf"])
+    # Add CSS for styling
+    st.markdown(
+        """
+        <style>
+        .main-header {
+            font-size: 36px;
+            font-weight: bold;
+            color: #0A74DA;
+        }
+        .instruction {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
         
-        if st.button("Process PDFs"):
-            if pdf_docs:
-                # Check file sizes
-                total_size = sum(pdf.size for pdf in pdf_docs)
-                if total_size > 10 * 1024 * 1024:  # 10MB limit
-                    st.error("Total PDF size too large. Please upload smaller files.")
-                    return
-                
-                # Process PDFs with status updates
-                raw_text = get_pdf_text(pdf_docs)
-                if raw_text:
-                    text_chunks = get_text_chunks(raw_text)
-                    if text_chunks:
-                        vector_store = get_vector_store(text_chunks)
-                        if vector_store:
-                            st.session_state.vector_store = vector_store
-                            st.success("✅ Processing complete! You can now ask questions.")
-            else:
-                st.warning("Please upload PDF files first.")
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Main content area
-    user_question = st.text_input("🔍 Ask a Question:", placeholder="Type your question here...")
-    
-    if st.button("Get Answer"):
-        if user_question:
-            if 'vector_store' in st.session_state:
-                try:
-                    with st.spinner("Searching for answer..."):
-                        user_input(user_question, st.session_state.vector_store)
-                except Exception as e:
-                    st.error(f"Error processing question: {str(e)}")
+    # Add header
+    st.markdown("<h1 class='main-header'>Chat with Your PDF using Gemini AI 🤖</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='instruction'>Upload your PDF, ask questions, and get detailed AI responses!</p>", unsafe_allow_html=True)
+
+    # Create a 2-column layout for better structure
+    col1, col2 = st.columns([12, 2])
+
+    with col1:
+        user_question = st.text_input("🔍 Ask a Question from the PDF Files", placeholder="Type your question here...")
+
+        # Add a "Submit" button to process the question
+        if st.button("Submit"):
+            if user_question:
+                st.write("### 🧠 Thinking...")
+                # Only allow submission if vector_store is available
+                if 'vector_store' in st.session_state:
+                    user_input(user_question, st.session_state.vector_store)
+                else:
+                    st.error("Please upload and process a PDF file first.")
             else:
-                st.warning("Please process PDF files first.")
-        else:
-            st.warning("Please enter a question.")
+                st.warning("Please enter a question before submitting.")
+
+    with col2:
+        with st.sidebar:
+            st.title("📂 PDF Upload & Processing")
+            st.write("1. Upload multiple PDFs.")
+            st.write("2. Ask questions based on the content.")
+            pdf_docs = st.file_uploader("Upload PDF Files", accept_multiple_files=True, type=["pdf"])
+
+            if st.button("Submit & Process PDFs"):
+                if pdf_docs:
+                    with st.spinner("📜 Extracting text and processing..."):
+                        raw_text = get_pdf_text(pdf_docs)
+                        if raw_text:
+                            text_chunks = get_text_chunks(raw_text)
+                            if text_chunks:
+                                vector_store = get_vector_store(text_chunks)
+                                if vector_store:
+                                    # Store vector store in session state to avoid re-processing
+                                    st.session_state.vector_store = vector_store
+                                    st.success("✅ Processing complete!")
+                else:
+                    st.warning("Please upload PDF files before processing.")
 
 if __name__ == "__main__":
     main()
