@@ -15,7 +15,7 @@ import traceback
 load_dotenv()
 
 # Ensure the Google API key is loaded
-google_api_key = os.getenv("Google_API_Key")
+google_api_key = st.secrets["API_Key"]
 if not google_api_key:
     raise ValueError("Google API key not found. Please check your .env file.")
 
