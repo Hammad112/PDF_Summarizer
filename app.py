@@ -42,7 +42,7 @@ def get_text_chunks(text):
 # Function to create an in-memory FAISS vector store
 def get_vector_store(text_chunks):
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001",api_key=google_api_key)
         vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
         return vector_store
     except Exception as e:
