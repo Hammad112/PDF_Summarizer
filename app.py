@@ -93,8 +93,8 @@ def main():
     )
 
     # Page header and instructions
-    st.markdown("<h1 class='main-header'>Chat with Your PDF using Gemini AI 🤖</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='instruction'>Upload your PDF, ask questions, and get detailed AI responses!</p>", unsafe_allow_html=True)
+    st.markdown("<h1 class='main-header'>Chat with Your PDF 🤖</h1>", unsafe_allow_html=True)
+    st.markdown("<p class='instruction'>Upload your PDF, ask questions, and get AI responses!</p>", unsafe_allow_html=True)
 
     # Set up session state for chat history and vector store
     if 'chat_history' not in st.session_state:
