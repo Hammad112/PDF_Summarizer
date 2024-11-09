@@ -84,7 +84,7 @@ def user_input(user_question, chain, vector_store):
 
 def main():
     # Set up Streamlit page and custom styles
-    st.set_page_config(page_title=" Chat PDF with Gemini AI", layout="centered", page_icon="📖")
+    st.set_page_config(page_title=" Chat with your PDF", layout="centered", page_icon="📖")
     st.markdown(
         """
         <style>
