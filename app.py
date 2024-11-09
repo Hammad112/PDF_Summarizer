@@ -16,25 +16,24 @@ if not GOOGLE_API_KEY:
 @st.cache_data
 def get_pdf_text(pdf_docs):
     text = ""
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
-        if pdf_reader.is_encrypted:
-            try:
-                pdf_reader.decrypt("")
-            except Exception as e:
-                st.error(f"Failed to decrypt PDF: {e}")
-                return ""
-        for page in pdf_reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text
+    try:
+        for pdf in pdf_docs:
+            pdf_reader = PdfReader(pdf)
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+    except Exception as e:
+        st.error(f"Error reading PDF files: {e}")
     return text
 
 # Creating chunks of the Pdf's
 @st.cache_data
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
-    chunks = text_splitter.split_text(text)
+    try:
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
+        chunks = text_splitter.split_text(text)
+    except Exception as e:
+        st.error(f"Error splitting text: {e}")
+        return []
     return chunks
 
 # Embeddings generation and Creating a vector store to save those embeddings
@@ -50,19 +49,28 @@ def load_or_create_vector_store(text_chunks):
 
 # Giving the prompt 
 def get_conversational_chain():
-    prompt_template = """
-    Answer the question in as much detail as possible from the provided context. If the answer is not in the provided context, say "Answer is not available in the context".
+    try:
+        prompt_template = """
+        Answer the question as detailed as possible from the provided context. If the answer is not in
+        the provided context, say, "Answer is not available in the context." Do not provide a wrong answer.
 
-    Context:\n{context}?\n
-    Question: \n{question}\n
+        Context:
+        {context}
 
-    Answer:
-    """
-    model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3, google_api_key=GOOGLE_API_KEY)
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
-    return chain
+        Question: 
+        {question}
 
+        Answer:
+        """
+        model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3, google_api_key=GOOGLE_API_KEY)
+        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+        chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
+        return chain
+     except Exception as e:
+        st.error(f"Error creating conversation chain: {e}")
+        traceback.print_exc()
+        return None
+         
 ## loading prompt ,chain and users prompt
 def user_input(user_question, chain, vector_store):
     docs = vector_store.similarity_search(user_question)
