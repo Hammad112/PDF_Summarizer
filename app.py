@@ -66,7 +66,7 @@ def get_conversational_chain():
         prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
         chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
         return chain
-     except Exception as e:
+    except Exception as e:
         st.error(f"Error creating conversation chain: {e}")
         traceback.print_exc()
         return None
