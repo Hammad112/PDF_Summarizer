@@ -12,6 +12,7 @@ GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("Gemini API key not found. Please check your .env file.")
 
+# Reading PDF's File content 
 @st.cache_data
 def get_pdf_text(pdf_docs):
     text = ""
@@ -29,14 +30,14 @@ def get_pdf_text(pdf_docs):
                 text += page_text
     return text
 
-
+# Creating chunks of the Pdf's
 @st.cache_data
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     chunks = text_splitter.split_text(text)
     return chunks
 
-
+# Embeddings generation and Creating a vector store to save those embeddings
 @st.cache_resource
 def load_or_create_vector_store(text_chunks):
     if not text_chunks:
@@ -47,10 +48,10 @@ def load_or_create_vector_store(text_chunks):
     vector_store.save_local("faiss_index")
     return vector_store
 
-
+# Giving the prompt 
 def get_conversational_chain():
     prompt_template = """
-    Answer the question as detailed as possible from the provided context. If the answer is not in the provided context, say "Answer is not available in the context".
+    Answer the question in as much detail as possible from the provided context. If the answer is not in the provided context, say "Answer is not available in the context".
 
     Context:\n{context}?\n
     Question: \n{question}\n
@@ -62,7 +63,7 @@ def get_conversational_chain():
     chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
     return chain
 
-
+## loading prompt ,chain and users prompt
 def user_input(user_question, chain, vector_store):
     docs = vector_store.similarity_search(user_question)
     response = chain(
