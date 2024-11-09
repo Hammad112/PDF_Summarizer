@@ -134,7 +134,7 @@ def main():
     # Display success message and "Processed Successfully" button if processing is complete
     if processing_complete:
         st.sidebar.success("✅ Processing complete!")
-        st.sidebar.button("Processed Successfully", disabled=True)  # Display confirmation button
+      
 
     # Conversational chain setup
     chain = get_conversational_chain()
