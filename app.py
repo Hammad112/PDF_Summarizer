@@ -126,6 +126,8 @@ def main():
             else:
                 st.session_state.vector_store = load_or_create_vector_store(text_chunks)
                 st.success("✅ Processing complete!")
+                st.button("Processed Successfully", disabled=True)  # Display confirmation button
+
 
     # Conversational chain setup
     chain = get_conversational_chain()
