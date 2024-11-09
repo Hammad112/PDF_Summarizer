@@ -118,16 +118,23 @@ def main():
     st.sidebar.write("2. Ask questions based on the content.")
     pdf_docs = st.sidebar.file_uploader("Upload PDF Files", accept_multiple_files=True, type=["pdf"])
 
+    # Initialize a flag for displaying success message and button
+    processing_complete = False
+
     if pdf_docs and st.sidebar.button("Submit & Process PDFs"):
         with st.spinner("📜 Extracting text and processing..."):
             raw_text = get_pdf_text(pdf_docs)
             text_chunks = get_text_chunks(raw_text)
             if not text_chunks:
-                st.error("No text extracted from the PDFs. Please check the content.")
+                st.sidebar.error("No text extracted from the PDFs. Please check the content.")
             else:
                 st.session_state.vector_store = load_or_create_vector_store(text_chunks)
-                st.success("✅ Processing complete!")
-                st.button("Processed Successfully", disabled=True)  # Display confirmation button
+                processing_complete = True  # Set flag to True on successful processing
+
+    # Display success message and "Processed Successfully" button if processing is complete
+    if processing_complete:
+        st.sidebar.success("✅ Processing complete!")
+        st.sidebar.button("Processed Successfully", disabled=True)  # Display confirmation button
 
     # Conversational chain setup
     chain = get_conversational_chain()
