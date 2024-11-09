@@ -68,10 +68,11 @@ def get_conversational_chain():
         return chain
     except Exception as e:
         st.error(f"Error creating conversation chain: {e}")
+        import traceback
         traceback.print_exc()
         return None
          
-## loading prompt ,chain and users prompt
+# loading prompt, chain, and user's prompt
 def user_input(user_question, chain, vector_store):
     docs = vector_store.similarity_search(user_question)
     response = chain(
@@ -127,7 +128,6 @@ def main():
                 st.session_state.vector_store = load_or_create_vector_store(text_chunks)
                 st.success("✅ Processing complete!")
                 st.button("Processed Successfully", disabled=True)  # Display confirmation button
-
 
     # Conversational chain setup
     chain = get_conversational_chain()
